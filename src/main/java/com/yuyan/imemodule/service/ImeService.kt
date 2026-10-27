@@ -84,6 +84,7 @@ class ImeService : InputMethodService() {
     }
 
     override fun onStartInputView(editorInfo: EditorInfo, restarting: Boolean) {
+        refreshKeyboardIfScreenChanged()
         if (::mInputView.isInitialized)mInputView.onStartInputView(editorInfo, restarting)
         super.onStartInputView(editorInfo, restarting)
     }
@@ -101,7 +102,12 @@ class ImeService : InputMethodService() {
         super.onConfigurationChanged(newConfig)
         isHardwareKeyboard = (newConfig.keyboard != Configuration.KEYBOARD_NOKEYS)
         CoroutineScope(Dispatchers.Main).launch {
-            delay(200) //延时，解决获取屏幕尺寸不准确。
+            // 延时，解决获取屏幕尺寸不准确：屏幕尺寸可能滞后于配置变更，等到方向与新配置一致再计算
+            var waits = 0
+            do {
+                delay(SCREEN_SETTLE_DELAY_MS)
+                waits++
+            } while (!screenMatchesOrientation(newConfig) && waits < SCREEN_SETTLE_MAX_WAITS)
             EnvironmentSingleton.instance.initData(baseContext)
             if(isHardwareKeyboard){
                 setCandidatesViewShown(true)
@@ -114,6 +120,33 @@ class ImeService : InputMethodService() {
             }
         }
         onSystemDarkModeChange(newConfig.isDarkMode())
+    }
+
+    private fun screenMatchesOrientation(config: Configuration): Boolean {
+        if (config.orientation == Configuration.ORIENTATION_UNDEFINED) return true
+        val dm = baseContext.resources.displayMetrics
+        val landscape = dm.heightPixels <= dm.widthPixels
+        return landscape == (config.orientation == Configuration.ORIENTATION_LANDSCAPE)
+    }
+
+    /**
+     * 弹出键盘前核对屏幕尺寸，与缓存不一致时（如横竖屏切换后取到旧尺寸）重新计算并重建键盘
+     */
+    private fun refreshKeyboardIfScreenChanged() {
+        val dm = baseContext.resources.displayMetrics
+        val env = EnvironmentSingleton.instance
+        if (dm.widthPixels == env.mScreenWidth && dm.heightPixels == env.mScreenHeight) return
+        env.initData(baseContext)
+        if (!isHardwareKeyboard && ::mInputView.isInitialized) {
+            KeyboardLoaderUtil.instance.clearKeyboardMap()
+            KeyboardManager.instance.clearKeyboard()
+            KeyboardManager.instance.switchKeyboard()
+        }
+    }
+
+    private companion object {
+        const val SCREEN_SETTLE_DELAY_MS = 200L
+        const val SCREEN_SETTLE_MAX_WAITS = 5
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
