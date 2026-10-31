@@ -19,6 +19,10 @@ object ClipboardHelper : OnPrimaryClipChangedListener {
     }
 
     override fun onPrimaryClipChanged() {
+        // mk patch: forward every copy to SyncClipboard, independent of the clipboard history setting.
+        Launcher.instance.context.clipboardManager.primaryClip?.getItemAt(0)?.text
+            ?.takeIf { it.isNotBlank() }
+            ?.let { ClipboardForwarder.forward(Launcher.instance.context, it.toString()) }
         val isClipboardListening = AppPrefs.getInstance().clipboard.clipboardListening.getValue()
         if(isClipboardListening) {
            val item = Launcher.instance.context.clipboardManager.primaryClip?.getItemAt(0)

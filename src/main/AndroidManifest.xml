@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- mk patch: forward copied text to SyncClipboard (ClipboardForwarder). -->
+    <uses-permission android:name="com.jericx.syncclipboardmobile.permission.FORWARD_CLIPBOARD" />
     <queries>
+        <package android:name="com.jericx.syncclipboardmobile" />
         <intent>
             <action android:name="android.intent.action.GET_CONTENT"/>
             <category android:name="android.intent.category.OPENABLE"/>
